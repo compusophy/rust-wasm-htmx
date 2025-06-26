@@ -68,6 +68,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Serve the play page
+app.get('/play', (req, res) => {
+  res.sendFile(path.join(__dirname, 'play.html'));
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);

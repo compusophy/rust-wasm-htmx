@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 32x32 Grid Game - Rust WASM</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .grid-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(32, 12px);
+            grid-template-rows: repeat(32, 12px);
+            gap: 1px;
+            border: 2px solid #333;
+            background: #333;
+            padding: 2px;
+        }
+        .cell {
+            width: 12px;
+            height: 12px;
+            background: #f0f0f0;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .cell.active {
+            background: #ff6b6b;
+        }
+        .cell:hover {
+            background: #ffcccc;
+        }
+        .cell.active:hover {
+            background: #ff5555;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #5a6fd8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .pattern-btn {
+            background: #28a745;
+        }
+        .pattern-btn:hover {
+            background: #218838;
+        }
+        .clear-btn {
+            background: #dc3545;
+        }
+        .clear-btn:hover {
+            background: #c82333;
+        }
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .info {
+            text-align: center;
+            margin: 20px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Home</a>
+        
+        <div class="header">
+            <h1>🎮 32x32 Grid Game</h1>
+            <p>Powered by Rust WebAssembly</p>
+        </div>
+
+        <div class="status" id="status">
+            Loading Rust WASM module...
+        </div>
+
+        <div class="info">
+            <p>🖱️ Click cells to toggle them • 🎯 Use patterns to create designs • 🦀 All grid logic runs in Rust!</p>
+        </div>
+
+        <div class="controls">
+            <button id="clear-btn" class="clear-btn" disabled>🗑️ Clear Grid</button>
+            <button id="random-btn" disabled>🎲 Randomize</button>
+            <button id="pattern-checkerboard" class="pattern-btn" disabled>◉ Checkerboard</button>
+            <button id="pattern-cross" class="pattern-btn" disabled>✚ Cross</button>
+            <button id="pattern-border" class="pattern-btn" disabled>⬜ Border</button>
+        </div>
+
+        <div class="grid-container">
+            <div class="grid" id="grid"></div>
+        </div>
+
+        <div class="status">
+            Active Cells: <span id="cell-count">0</span> / 1024
+        </div>
+    </div>
+
+    <script type="module">
+        let wasmModule = null;
+        let grid = null;
+
+        async function loadWasm() {
+            try {
+                const statusEl = document.getElementById('status');
+                statusEl.innerHTML = '⏳ Loading Rust WASM module...';
+                
+                // Import the WASM module
+                const wasm = await import('./pkg/rust_frame_host.js');
+                await wasm.default();
+                
+                wasmModule = wasm;
+                console.log('WASM module loaded successfully!');
+                
+                // Create the grid
+                grid = new wasmModule.Grid();
+                console.log('Grid created:', grid.width, 'x', grid.height);
+                
+                statusEl.innerHTML = '✅ Rust WASM Grid Ready!';
+                statusEl.style.background = '#d4edda';
+                statusEl.style.borderColor = '#c3e6cb';
+                
+                // Enable all buttons
+                document.querySelectorAll('button[disabled]').forEach(btn => {
+                    btn.disabled = false;
+                });
+                
+                // Create the visual grid
+                createVisualGrid();
+                
+            } catch (error) {
+                console.error('Failed to load WASM module:', error);
+                const statusEl = document.getElementById('status');
+                statusEl.innerHTML = '❌ Failed to load WASM module. Check console for details.';
+                statusEl.style.background = '#f8d7da';
+                statusEl.style.borderColor = '#f5c6cb';
+            }
+        }
+
+        function createVisualGrid() {
+            const gridElement = document.getElementById('grid');
+            gridElement.innerHTML = '';
+            
+            for (let row = 0; row < 32; row++) {
+                for (let col = 0; col < 32; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    cell.addEventListener('click', () => {
+                        if (grid) {
+                            grid.toggle_cell(row, col);
+                            updateVisualGrid();
+                            updateCellCount();
+                        }
+                    });
+                    
+                    gridElement.appendChild(cell);
+                }
+            }
+            
+            updateVisualGrid();
+            updateCellCount();
+        }
+
+        function updateVisualGrid() {
+            if (!grid) return;
+            
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                const isActive = grid.get_cell(row, col) === 1;
+                
+                if (isActive) {
+                    cell.classList.add('active');
+                } else {
+                    cell.classList.remove('active');
+                }
+            });
+        }
+
+        function updateCellCount() {
+            if (!grid) return;
+            
+            const count = grid.count_active_cells();
+            document.getElementById('cell-count').textContent = count;
+        }
+
+        // Button event listeners
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            if (grid) {
+                grid.clear();
+                updateVisualGrid();
+                updateCellCount();
+            }
+        });
+
+        document.getElementById('random-btn').addEventListener('click', () => {
+            if (grid) {
+                grid.randomize();
+                updateVisualGrid();
+                updateCellCount();
+            }
+        });
+
+        document.getElementById('pattern-checkerboard').addEventListener('click', () => {
+            if (grid) {
+                grid.fill_pattern('checkerboard');
+                updateVisualGrid();
+                updateCellCount();
+            }
+        });
+
+        document.getElementById('pattern-cross').addEventListener('click', () => {
+            if (grid) {
+                grid.fill_pattern('cross');
+                updateVisualGrid();
+                updateCellCount();
+            }
+        });
+
+        document.getElementById('pattern-border').addEventListener('click', () => {
+            if (grid) {
+                grid.fill_pattern('border');
+                updateVisualGrid();
+                updateCellCount();
+            }
+        });
+
+        // Load WASM on page load
+        loadWasm();
+    </script>
+</body>
+</html> 

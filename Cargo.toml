@@ -12,15 +12,20 @@ name = "websocket-server"
 path = "src/websocket_server.rs"
 
 [dependencies]
-# WASM dependencies
+# Common dependencies
+serde = { version = "1.0", features = ["derive"] }
+
+# WASM-only dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 web-sys = { version = "0.3", features = ["console", "Document", "Element", "HtmlElement", "Window"] }
 js-sys = "0.3"
+getrandom = { version = "0.2", features = ["js"] }
 
-# WebSocket server dependencies
+# Non-WASM dependencies (for websocket server binary)
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.0", features = ["full"] }
 tokio-tungstenite = "0.21"
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures-util = "0.3"
 chrono = { version = "0.4", features = ["serde"] } 
