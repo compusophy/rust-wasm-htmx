@@ -208,6 +208,23 @@ async fn handle_http(stream: tokio::net::TcpStream, request_str: &str) {
     let (content, content_type) = match path {
         "/" => (read_file("index.html"), "text/html"),
         "/play" => (read_file("play.html"), "text/html"),
+        "/health" => {
+            let health_info = format!(
+                "{{\"status\":\"ok\",\"server\":\"rust\",\"wasm_files\":[{}]}}",
+                if std::path::Path::new("pkg").exists() {
+                    let entries: Vec<String> = std::fs::read_dir("pkg")
+                        .map(|entries| entries
+                            .filter_map(|e| e.ok())
+                            .map(|e| format!("\"{}\"", e.file_name().to_string_lossy()))
+                            .collect())
+                        .unwrap_or_default();
+                    entries.join(",")
+                } else {
+                    "\"pkg directory not found\"".to_string()
+                }
+            );
+            (Some(health_info.into_bytes()), "application/json")
+        },
         path if path.starts_with("/pkg/") => {
             let file_path = &path[1..]; // Remove leading /
             let content_type = if path.ends_with(".js") {
