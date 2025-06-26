@@ -152,11 +152,144 @@
             </button>
             <div id="combined-result" class="result">Click to see combined functionality</div>
         </div>
+
+        <div class="section">
+            <h2>🔌 WebSocket Real-time Communication</h2>
+            <div id="ws-status" class="status loading">Connecting to WebSocket...</div>
+            
+            <div style="margin: 15px 0;">
+                <h3>Send WASM Calculation via WebSocket</h3>
+                <input type="number" id="ws-num1" value="10" />
+                <span> + </span>
+                <input type="number" id="ws-num2" value="20" />
+                <button onclick="sendCalculationViaWS()" id="ws-calc-btn" disabled>
+                    Calculate & Broadcast
+                </button>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <h3>Chat via WebSocket</h3>
+                <input type="text" id="chat-input" placeholder="Type a message..." style="width: 300px;" />
+                <button onclick="sendChatMessage()" id="chat-btn" disabled>Send</button>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <h3>Live Messages</h3>
+                <div id="ws-messages" style="height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white;">
+                    <em>WebSocket messages will appear here...</em>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module">
         let wasmModule = null;
         let calculator = null;
+        let websocket = null;
+
+        // WebSocket connection
+        function connectWebSocket() {
+            const wsStatus = document.getElementById('ws-status');
+            
+            try {
+                websocket = new WebSocket('ws://localhost:8080');
+                
+                websocket.onopen = function(event) {
+                    console.log('🔌 WebSocket connected');
+                    wsStatus.className = 'status ready';
+                    wsStatus.innerHTML = '✅ WebSocket Connected';
+                    
+                    // Enable WebSocket buttons
+                    document.getElementById('ws-calc-btn').disabled = false;
+                    document.getElementById('chat-btn').disabled = false;
+                };
+                
+                websocket.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+                        displayWebSocketMessage(message);
+                    } catch (e) {
+                        console.error('Failed to parse WebSocket message:', e);
+                    }
+                };
+                
+                websocket.onclose = function(event) {
+                    console.log('🔌 WebSocket disconnected');
+                    wsStatus.className = 'status error';
+                    wsStatus.innerHTML = '❌ WebSocket Disconnected';
+                    
+                    // Disable WebSocket buttons
+                    document.getElementById('ws-calc-btn').disabled = true;
+                    document.getElementById('chat-btn').disabled = true;
+                    
+                    // Try to reconnect after 3 seconds
+                    setTimeout(connectWebSocket, 3000);
+                };
+                
+                websocket.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    wsStatus.className = 'status error';
+                    wsStatus.innerHTML = '❌ WebSocket Error';
+                };
+                
+            } catch (error) {
+                console.error('Failed to connect WebSocket:', error);
+                wsStatus.className = 'status error';
+                wsStatus.innerHTML = '❌ Failed to connect to WebSocket server';
+            }
+        }
+
+        function displayWebSocketMessage(message) {
+            const messagesDiv = document.getElementById('ws-messages');
+            const messageElement = document.createElement('div');
+            messageElement.style.marginBottom = '10px';
+            messageElement.style.padding = '8px';
+            messageElement.style.borderRadius = '4px';
+            
+            const timestamp = new Date(message.timestamp || Date.now()).toLocaleTimeString();
+            
+            switch (message.type) {
+                case 'calculation':
+                    messageElement.style.background = '#e3f2fd';
+                    messageElement.style.border = '1px solid #2196f3';
+                    messageElement.innerHTML = `
+                        <strong>🧮 Calculation:</strong> ${message.operation} = ${message.result}
+                        <br><small>${timestamp}</small>
+                    `;
+                    break;
+                case 'chat':
+                    messageElement.style.background = '#f3e5f5';
+                    messageElement.style.border = '1px solid #9c27b0';
+                    messageElement.innerHTML = `
+                        <strong>💬 ${message.user}:</strong> ${message.message}
+                        <br><small>${timestamp}</small>
+                    `;
+                    break;
+                case 'system':
+                    messageElement.style.background = '#e8f5e8';
+                    messageElement.style.border = '1px solid #4caf50';
+                    messageElement.innerHTML = `
+                        <strong>🔔 System:</strong> ${message.message}
+                        <br><small>${timestamp}</small>
+                    `;
+                    break;
+                default:
+                    messageElement.style.background = '#fff3e0';
+                    messageElement.style.border = '1px solid #ff9800';
+                    messageElement.innerHTML = `
+                        <strong>📨 Message:</strong> ${JSON.stringify(message)}
+                        <br><small>${timestamp}</small>
+                    `;
+            }
+            
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Keep only the last 50 messages
+            while (messagesDiv.children.length > 50) {
+                messagesDiv.removeChild(messagesDiv.firstChild);
+            }
+        }
 
         async function loadWasm() {
             try {
@@ -175,10 +308,14 @@
                 
                 // Enable all buttons
                 document.querySelectorAll('button[disabled]').forEach(btn => {
-                    if (btn.id !== 'add-calc-btn' && btn.id !== 'multiply-calc-btn' && btn.id !== 'reset-calc-btn') {
+                    if (btn.id !== 'add-calc-btn' && btn.id !== 'multiply-calc-btn' && btn.id !== 'reset-calc-btn' &&
+                        btn.id !== 'ws-calc-btn' && btn.id !== 'chat-btn') {
                         btn.disabled = false;
                     }
                 });
+                
+                // Connect WebSocket after WASM is loaded
+                connectWebSocket();
                 
             } catch (error) {
                 console.error('Failed to load WASM module:', error);
@@ -273,6 +410,61 @@
                 }
             }
         };
+
+        // WebSocket functions
+        window.sendCalculationViaWS = function() {
+            if (wasmModule && websocket && websocket.readyState === WebSocket.OPEN) {
+                const num1 = parseInt(document.getElementById('ws-num1').value) || 0;
+                const num2 = parseInt(document.getElementById('ws-num2').value) || 0;
+                const result = wasmModule.add(num1, num2);
+                
+                const message = {
+                    type: 'calculation',
+                    operation: `${num1} + ${num2}`,
+                    result: result,
+                    timestamp: new Date().toISOString()
+                };
+                
+                websocket.send(JSON.stringify(message));
+                console.log('📤 Sent calculation via WebSocket:', message);
+            } else {
+                alert('WebSocket not connected or WASM not loaded!');
+            }
+        };
+
+        window.sendChatMessage = function() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                const chatInput = document.getElementById('chat-input');
+                const message = chatInput.value.trim();
+                
+                if (message) {
+                    const chatMessage = {
+                        type: 'chat',
+                        user: 'You',
+                        message: message,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    websocket.send(JSON.stringify(chatMessage));
+                    chatInput.value = '';
+                    console.log('📤 Sent chat message via WebSocket:', chatMessage);
+                }
+            } else {
+                alert('WebSocket not connected!');
+            }
+        };
+
+        // Allow Enter key to send chat messages
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        sendChatMessage();
+                    }
+                });
+            }
+        });
 
         // Load WASM on page load
         loadWasm();

@@ -6,6 +6,7 @@ A modern web application demonstrating the integration of Rust WebAssembly with 
 
 - **Rust WebAssembly**: High-performance calculations compiled to WASM
 - **HTMX Integration**: Dynamic content updates without complex JavaScript
+- **WebSocket Server**: Real-time communication built with Rust + Tokio
 - **Express Server**: Simple Node.js server for API endpoints
 - **Modern UI**: Beautiful, responsive design with CSS gradients and animations
 
@@ -35,15 +36,26 @@ npm install -g wasm-pack
    npm install
    ```
 
-2. **Start the development server** (builds WASM and starts server):
+2. **Start the development server** (builds WASM and starts Express server):
    ```bash
    npm start
    ```
 
-   Or manually:
+3. **Start the WebSocket server** (in a separate terminal):
+   ```bash
+   npm run websocket
+   ```
+
+   **Or start both servers simultaneously**:
+   ```bash
+   npm run dev:full
+   ```
+
+   Manual commands:
    ```bash
    npm run build:rust
-   npm run server
+   npm run server          # Express server on port 3000
+   npm run websocket       # WebSocket server on port 8080
    ```
 
 ## 🏗️ Project Structure
@@ -74,6 +86,13 @@ rust-frame-host/
 - **POST Requests**: Echo form data processing
 - **Integration**: Combine WASM calculations with server requests
 
+### WebSocket Real-time Communication
+- **Bidirectional**: Real-time communication between clients
+- **Message Broadcasting**: Messages sent to all connected clients
+- **WASM Integration**: Send calculation results via WebSocket
+- **Chat System**: Simple real-time chat functionality
+- **Auto-reconnect**: Automatically reconnects on connection loss
+
 ### Express Server
 - **Simple**: Lightweight Node.js web server
 - **API Endpoints**: RESTful endpoints for HTMX integration
@@ -82,20 +101,28 @@ rust-frame-host/
 ## 🔧 Available Scripts
 
 - `npm run build:rust` - Build Rust to WebAssembly
-- `npm run server` - Start Express server
-- `npm start` - Build Rust and start server
+- `npm run server` - Start Express server (port 3000)
+- `npm run websocket` - Start WebSocket server (port 8080)
+- `npm run dev:full` - Start both Express and WebSocket servers
+- `npm start` - Build Rust and start Express server
 
 ## 🧪 Testing the Integration
 
 1. **WASM Functions**: Use the calculator and math functions
 2. **HTMX Requests**: Click "Get Server Time" and "Echo Text" buttons
 3. **Combined Usage**: Try the "Calculate Random Sum & Send to Server" feature
-4. **Browser Console**: Check for WASM loading logs and calculation results
+4. **WebSocket Real-time**: 
+   - Send calculations via WebSocket to broadcast to all clients
+   - Use the chat system to send messages in real-time
+   - Open multiple browser tabs to see real-time updates
+5. **Browser Console**: Check for WASM loading logs and WebSocket connection status
 
 ## 🔗 Technology Stack
 
 - **[Rust](https://rust-lang.org/)** - Systems programming language
 - **[wasm-bindgen](https://rustwasm.github.io/wasm-bindgen/)** - Rust-WebAssembly bindings
+- **[Tokio](https://tokio.rs/)** - Asynchronous runtime for Rust
+- **[tokio-tungstenite](https://github.com/snapview/tokio-tungstenite)** - WebSocket implementation for Tokio
 - **[Express.js](https://expressjs.com/)** - Fast web framework for Node.js
 - **[HTMX](https://htmx.org/)** - Dynamic HTML with minimal JavaScript
 - **[Node.js](https://nodejs.org/)** - JavaScript runtime environment
@@ -113,13 +140,21 @@ rust-frame-host/
 - Reinstall dependencies: `npm install`
 
 ### Development Server Issues
-- Check if port 3000 is available
-- Try `npm run build:rust && npm run server`
+- Check if ports 3000 (Express) and 8080 (WebSocket) are available
+- Try `npm run build:rust && npm run dev:full`
 - Ensure all dependencies are installed
+
+### WebSocket Connection Issues
+- Ensure the WebSocket server is running: `npm run websocket`
+- Check if port 8080 is available and not blocked by firewall
+- WebSocket connects to `ws://localhost:8080` - ensure no proxy interference
+- Check browser console for WebSocket connection errors
 
 ## 📚 Learning Resources
 
 - [Rust WebAssembly Book](https://rustwasm.github.io/book/)
+- [Tokio Tutorial](https://tokio.rs/tokio/tutorial)
+- [WebSocket with Rust](https://blog.logrocket.com/websockets-tutorial-rust/)
 - [HTMX Documentation](https://htmx.org/docs/)
 - [Express.js Guide](https://expressjs.com/en/guide/routing.html)
 - [wasm-bindgen Guide](https://rustwasm.github.io/wasm-bindgen/)
