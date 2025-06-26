@@ -202,7 +202,9 @@
             const wsStatus = document.getElementById('ws-status');
             
             try {
-                websocket = new WebSocket('ws://localhost:8080');
+                const wsUrl = `ws://${window.location.host}/ws`;
+                console.log('🔌 Connecting to WebSocket:', wsUrl);
+                websocket = new WebSocket(wsUrl);
                 
                 websocket.onopen = function(event) {
                     console.log('🔌 WebSocket connected');

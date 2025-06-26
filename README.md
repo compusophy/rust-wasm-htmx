@@ -1,21 +1,18 @@
-# 🦀 Rust WebAssembly + 🔄 HTMX Demo
+# 🦀 Rust WebAssembly Game
 
-A modern web application demonstrating the integration of Rust WebAssembly with HTMX for dynamic interactions.
+A high-performance game built with pure Rust - WebAssembly for client-side logic and a Rust server for real-time multiplayer.
 
 ## 🚀 Features
 
-- **Rust WebAssembly**: High-performance calculations compiled to WASM
-- **HTMX Integration**: Dynamic content updates without complex JavaScript
-- **WebSocket Server**: Real-time communication built with Rust + Tokio
-- **Express Server**: Simple Node.js server for API endpoint
-- **Modern UI**: Beautiful, responsive design with CSS gradients and animations
+- **Pure Rust Stack**: No Node.js dependency!
+- **Rust WebAssembly**: High-performance client-side game logic
+- **Rust Server**: Lightning-fast static file serving + WebSockets
+- **Real-time Multiplayer**: WebSocket communication for live gameplay
+- **32x32 Grid Game**: Interactive grid-based game mechanics
 
 ## 📋 Prerequisites
 
-Make sure you have the following installed:
-
 - [Rust](https://rustup.rs/) (latest stable)
-- [Node.js](https://nodejs.org/) (v18+ recommended)
 - [wasm-pack](https://rustwasm.github.io/wasm-pack/)
 
 ### Installing wasm-pack
@@ -24,39 +21,20 @@ Make sure you have the following installed:
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 ```
 
-Or via npm:
-```bash
-npm install -g wasm-pack
-```
+## 🛠️ Setup & Build
 
-## 🛠️ Setup & Installation
-
-1. **Install JavaScript dependencies**:
+1. **Build WebAssembly**:
    ```bash
-   npm install
+   wasm-pack build --target web --out-dir pkg
    ```
 
-2. **Start the development server** (builds WASM and starts Express server):
+2. **Run the server**:
    ```bash
-   npm start
+   cargo run --bin server
    ```
 
-3. **Start the WebSocket server** (in a separate terminal):
-   ```bash
-   npm run websocket
-   ```
-
-   **Or start both servers simultaneously**:
-   ```bash
-   npm run dev:full
-   ```
-
-   Manual commands:
-   ```bash
-   npm run build:rust
-   npm run server          # Express server on port 3000
-   npm run websocket       # WebSocket server on port 8080
-   ```
+3. **Open your browser**:
+   Navigate to `http://localhost:3000`
 
 ## 🏗️ Project Structure
 

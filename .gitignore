@@ -5,13 +5,12 @@ yarn.lock
 pnpm-lock.yaml
 
 # Rust
-/target/
+/target
 **/*.rs.bk
 Cargo.lock
 
-# WASM output
-/pkg/
-*.wasm
+# WASM
+/pkg
 
 # Build outputs
 /dist/
@@ -51,4 +50,7 @@ yarn-error.log*
 pids
 *.pid
 *.seed
-*.pid.lock 
+*.pid.lock
+
+# Build artifacts
+*.js.map 

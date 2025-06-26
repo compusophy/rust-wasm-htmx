@@ -6,10 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib"]
 
-# Add binary target for WebSocket server
+# Combined server binary
 [[bin]]
-name = "websocket-server"
-path = "src/websocket_server.rs"
+name = "server"
+path = "src/server.rs"
 
 [dependencies]
 # Common dependencies
@@ -22,10 +22,11 @@ web-sys = { version = "0.3", features = ["console", "Document", "Element", "Html
 js-sys = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
 
-# Non-WASM dependencies (for websocket server binary)
+# Server dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.0", features = ["full"] }
 tokio-tungstenite = "0.21"
 serde_json = "1.0"
 futures-util = "0.3"
-chrono = { version = "0.4", features = ["serde"] } 
+chrono = { version = "0.4", features = ["serde"] }
+warp = "0.3" 

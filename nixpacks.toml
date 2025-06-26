@@ -1,14 +1,13 @@
-providers = ["node", "rust"]
+providers = ["rust"]
 
 [variables]
-NPM_CONFIG_PRODUCTION = "false"
-NODE_VERSION = "18"
+RUST_VERSION = "1.75"
 
 [phases.setup]
-nixPkgs = ["nodejs_18", "cargo", "rustc", "wasm-pack", "binaryen"]
+nixPkgs = ["cargo", "rustc", "wasm-pack", "binaryen"]
 
 [phases.build]
-cmd = "npm ci && npm run build"
+cmd = "wasm-pack build --target web --out-dir pkg && cargo build --release --bin server"
 
 [phases.start]
-cmd = "npm run start:production" 
+cmd = "cargo run --release --bin server" 

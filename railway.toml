@@ -1,9 +1,14 @@
 [build]
-builder = "nixpacks"
+builder = "NIXPACKS"
+
+[build.nixpacksConfig]
+nixPacksVersion = "1.0.0"
 
 [deploy]
-startCommand = "npm run start:production"
-restartPolicyType = "always"
+startCommand = "cargo run --release --bin server"
+
+[variables]
+PORT = "3000"
 
 # Environment variables
 [env]
