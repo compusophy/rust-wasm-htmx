@@ -1,0 +1,12 @@
+[package]
+name = "rust-frame-host"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+web-sys = { version = "0.3", features = ["console", "Document", "Element", "HtmlElement", "Window"] }
+js-sys = "0.3" 

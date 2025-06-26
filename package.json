@@ -1,0 +1,23 @@
+{
+  "name": "rust-frame-host",
+  "version": "0.1.0",
+  "description": "Rust WebAssembly with HTMX",
+  "scripts": {
+    "build:rust": "wasm-pack build --target web --out-dir pkg",
+    "build": "npm run build:rust",
+    "dev": "npm run build:rust && npm run server",
+    "server": "node server.js",
+    "start": "npm run dev"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "typescript": "5.3.3",
+    "vite": "^5.0.10"
+  },
+  "engines": {
+    "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
+  }
+}

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦀 Rust WASM + 🔄 HTMX Demo</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5a6fd8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .result {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.loading {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+        }
+        .status.ready {
+            background: #d4edda;
+            border: 1px solid #28a745;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦀 Rust WebAssembly + 🔄 HTMX Demo</h1>
+        
+        <div class="section">
+            <h2>WebAssembly Status</h2>
+            <div id="wasm-status" class="status loading">⏳ Loading WASM module...</div>
+            <p>Check your browser console to see WASM logs!</p>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Simple WASM Functions</h2>
+            
+            <div style="margin: 15px 0;">
+                <h3>Greeting</h3>
+                <input type="text" id="name-input" value="World" placeholder="Enter your name" />
+                <button onclick="greetUser()" id="greet-btn" disabled>Greet (Alert)</button>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <h3>Addition</h3>
+                <input type="number" id="num1-input" value="5" />
+                <span> + </span>
+                <input type="number" id="num2-input" value="3" />
+                <button onclick="calculateSum()" id="add-btn" disabled>Calculate</button>
+                <div id="add-result" class="result">Result: Click to calculate</div>
+            </div>
+
+            <div style="margin: 15px 0;">
+                <h3>Factorial</h3>
+                <input type="number" id="factorial-input" value="5" min="0" max="20" />
+                <button onclick="calculateFactorial()" id="factorial-btn" disabled>Calculate Factorial</button>
+                <div id="factorial-result" class="result">Factorial: Click to calculate</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🧮 WASM Calculator Class</h2>
+            <div id="calculator-section">
+                <button onclick="createCalculator()" id="create-calc-btn" disabled>Create Calculator</button>
+                <button onclick="addToCalculator()" id="add-calc-btn" disabled>Add 10</button>
+                <button onclick="multiplyCalculator()" id="multiply-calc-btn" disabled>Multiply by 2</button>
+                <button onclick="resetCalculator()" id="reset-calc-btn" disabled>Reset</button>
+                <div id="calc-status" class="result">Create a calculator to start</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔄 HTMX Dynamic Content</h2>
+            <button hx-get="/api/time" hx-target="#time-result" hx-swap="innerHTML">
+                Get Server Time (HTMX)
+            </button>
+            <div id="time-result" class="result">Click the button to load server time</div>
+            
+            <div style="margin-top: 20px;">
+                <button hx-post="/api/echo" hx-target="#echo-result" hx-swap="innerHTML" hx-include="[name='echo-input']">
+                    Echo Text (HTMX POST)
+                </button>
+                <input name="echo-input" type="text" placeholder="Type something..." />
+                <div id="echo-result" class="result">Your echoed text will appear here</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔗 Combined WASM + HTMX</h2>
+            <p>This demonstrates how you can combine WASM calculations with HTMX requests:</p>
+            <button onclick="calculateAndSend()" id="combined-btn" disabled>
+                Calculate Random Sum & Send to Server
+            </button>
+            <div id="combined-result" class="result">Click to see combined functionality</div>
+        </div>
+    </div>
+
+    <script type="module">
+        let wasmModule = null;
+        let calculator = null;
+
+        async function loadWasm() {
+            try {
+                const statusEl = document.getElementById('wasm-status');
+                statusEl.innerHTML = '⏳ Initializing WASM module...';
+                
+                // Import the WASM module
+                const wasm = await import('./pkg/rust_frame_host.js');
+                await wasm.default();
+                
+                wasmModule = wasm;
+                console.log('WASM module loaded successfully!');
+                
+                statusEl.className = 'status ready';
+                statusEl.innerHTML = '✅ WASM Module Ready!';
+                
+                // Enable all buttons
+                document.querySelectorAll('button[disabled]').forEach(btn => {
+                    if (btn.id !== 'add-calc-btn' && btn.id !== 'multiply-calc-btn' && btn.id !== 'reset-calc-btn') {
+                        btn.disabled = false;
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Failed to load WASM module:', error);
+                const statusEl = document.getElementById('wasm-status');
+                statusEl.className = 'status error';
+                statusEl.innerHTML = '❌ Failed to load WASM module. Check console for details.';
+            }
+        }
+
+        // Make functions global for onclick handlers
+        window.greetUser = function() {
+            if (wasmModule) {
+                const name = document.getElementById('name-input').value;
+                wasmModule.greet(name);
+            }
+        };
+
+        window.calculateSum = function() {
+            if (wasmModule) {
+                const num1 = parseInt(document.getElementById('num1-input').value) || 0;
+                const num2 = parseInt(document.getElementById('num2-input').value) || 0;
+                const result = wasmModule.add(num1, num2);
+                document.getElementById('add-result').innerHTML = `Result: ${num1} + ${num2} = ${result}`;
+            }
+        };
+
+        window.calculateFactorial = function() {
+            if (wasmModule) {
+                const num = parseInt(document.getElementById('factorial-input').value) || 0;
+                const result = wasmModule.factorial(num);
+                document.getElementById('factorial-result').innerHTML = `Factorial of ${num} = ${result}`;
+            }
+        };
+
+        window.createCalculator = function() {
+            if (wasmModule) {
+                calculator = new wasmModule.Calculator();
+                document.getElementById('calc-status').innerHTML = 'Calculator created! Value: 0';
+                
+                // Enable calculator buttons
+                document.getElementById('add-calc-btn').disabled = false;
+                document.getElementById('multiply-calc-btn').disabled = false;
+                document.getElementById('reset-calc-btn').disabled = false;
+            }
+        };
+
+        window.addToCalculator = function() {
+            if (calculator) {
+                const result = calculator.add(10);
+                document.getElementById('calc-status').innerHTML = `Calculator value: ${result}`;
+            }
+        };
+
+        window.multiplyCalculator = function() {
+            if (calculator) {
+                const result = calculator.multiply(2);
+                document.getElementById('calc-status').innerHTML = `Calculator value: ${result}`;
+            }
+        };
+
+        window.resetCalculator = function() {
+            if (calculator) {
+                calculator.reset();
+                document.getElementById('calc-status').innerHTML = 'Calculator reset! Value: 0';
+            }
+        };
+
+        window.calculateAndSend = async function() {
+            if (wasmModule) {
+                const num1 = Math.floor(Math.random() * 100);
+                const num2 = Math.floor(Math.random() * 100);
+                const result = wasmModule.add(num1, num2);
+                
+                try {
+                    const response = await fetch('/api/wasm-result', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ result, num1, num2 })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        document.getElementById('combined-result').innerHTML = 
+                            `🎲 Random calculation: ${num1} + ${num2} = ${result}<br>✅ Sent to server successfully!`;
+                    } else {
+                        document.getElementById('combined-result').innerHTML = 
+                            `🎲 Calculated: ${num1} + ${num2} = ${result}<br>❌ Failed to send to server`;
+                    }
+                } catch (error) {
+                    document.getElementById('combined-result').innerHTML = 
+                        `🎲 Calculated: ${num1} + ${num2} = ${result}<br>❌ Error: ${error.message}`;
+                }
+            }
+        };
+
+        // Load WASM on page load
+        loadWasm();
+    </script>
+</body>
+</html> 
