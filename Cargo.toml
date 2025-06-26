@@ -6,7 +6,7 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib"]
 
-# Combined server binary
+# HTTP + WebSocket server binary
 [[bin]]
 name = "server"
 path = "src/server.rs"
@@ -22,11 +22,11 @@ web-sys = { version = "0.3", features = ["console", "Document", "Element", "Html
 js-sys = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
 
-# Server dependencies - simplified for Railway
+# Pure Rust server with WebSockets - add required features
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { version = "1.0", features = ["net", "rt-multi-thread", "macros"] }
-tokio-tungstenite = "0.21"
+tiny_http = "0.12"
+tokio = { version = "1.0", features = ["rt-multi-thread", "net", "sync", "macros"], default-features = false }
+tokio-tungstenite = { version = "0.21", features = ["handshake"], default-features = false }
 serde_json = "1.0"
-futures-util = "0.3"
-chrono = { version = "0.4", features = ["serde"], default-features = false }
-warp = "0.3" 
+futures-util = { version = "0.3", default-features = false }
+time = { version = "0.3", features = ["formatting"], default-features = false } 

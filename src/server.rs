@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::thread;
+use std::fs;
 use tokio::sync::{broadcast, Mutex};
-use warp::Filter;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use tiny_http::{Server, Response, Header};
 
 // Message types for WebSocket communication
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -30,80 +32,137 @@ pub enum WsMessage {
 
 type Clients = Arc<Mutex<HashMap<String, broadcast::Sender<WsMessage>>>>;
 
+fn get_timestamp() -> String {
+    time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339)
+        .unwrap_or_else(|_| "unknown".to_string())
+}
+
 #[tokio::main]
 async fn main() {
-    println!("🦀 Starting Pure Rust Server...");
+    println!("🦀 Starting Pure Rust Server with WebSockets...");
     
-    // Initialize WebSocket state
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string());
+    
+    // WebSocket state
     let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
     let (broadcast_tx, _) = broadcast::channel::<WsMessage>(100);
     
     // Send startup message
     let startup_msg = WsMessage::System {
-        message: "🦀 Pure Rust server started!".to_string(),
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        message: "🦀 Pure Rust server with WebSockets started!".to_string(),
+        timestamp: get_timestamp(),
     };
     let _ = broadcast_tx.send(startup_msg);
     
-    // Static file serving
-    let static_files = warp::fs::dir(".")
-        .with(warp::log("static"));
-    
-    // Serve play.html at /play route
-    let play_route = warp::path("play")
-        .and(warp::get())
-        .and(warp::fs::file("play.html"));
-    
-    // WebSocket route
-    let clients_filter = warp::any().map(move || clients.clone());
-    let broadcast_filter = warp::any().map(move || broadcast_tx.clone());
-    
-    let websocket = warp::path("ws")
-        .and(warp::ws())
-        .and(clients_filter)
-        .and(broadcast_filter)
-        .map(|ws: warp::ws::Ws, clients: Clients, broadcast_tx: broadcast::Sender<WsMessage>| {
-            ws.on_upgrade(move |socket| handle_websocket(socket, clients, broadcast_tx))
-        });
-    
-    // CORS for development
-    let cors = warp::cors()
-        .allow_any_origin()
-        .allow_headers(vec!["content-type"])
-        .allow_methods(vec!["GET", "POST", "OPTIONS"]);
-    
-    // Combine routes
-    let routes = websocket
-        .or(play_route)
-        .or(static_files)
-        .with(cors)
-        .with(warp::log("requests"));
-    
-    let port = std::env::var("PORT")
-        .unwrap_or_else(|_| "3000".to_string())
-        .parse::<u16>()
-        .unwrap_or(3000);
-    
     println!("🚀 Server running at http://localhost:{}", port);
-    println!("📁 Serving static files");
+    println!("📁 Serving static files via HTTP");
     println!("🔌 WebSocket available at ws://localhost:{}/ws", port);
     println!("🦀 WASM files available at /pkg/");
-    println!("⚡ Pure Rust - No Node.js dependency!");
+    println!("⚡ Pure Rust - Minimal C dependencies!");
     
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], port))
-        .await;
+    // Start HTTP server in a separate thread
+    let http_port = port.clone();
+    thread::spawn(move || {
+        start_http_server(&http_port);
+    });
+    
+    // Start WebSocket server on same port + 1
+    let ws_port: u16 = port.parse::<u16>().unwrap_or(3000) + 1;
+    start_websocket_server(ws_port, clients, broadcast_tx).await;
 }
 
-async fn handle_websocket(
-    websocket: warp::ws::WebSocket,
+fn start_http_server(port: &str) {
+    let server = Server::http(format!("0.0.0.0:{}", port)).unwrap();
+    
+    for request in server.incoming_requests() {
+        thread::spawn(move || {
+            handle_http_request(request);
+        });
+    }
+}
+
+fn handle_http_request(request: tiny_http::Request) {
+    let url = request.url();
+    let method = request.method();
+    
+    println!("📨 {} {}", method, url);
+    
+    let response = match url {
+        "/" => serve_file("index.html"),
+        "/play" => serve_file("play.html"),
+        path if path.starts_with("/pkg/") => serve_file(&path[1..]),
+        path if path.starts_with("/public/") => serve_file(&path[1..]),
+        _ => serve_file(&url[1..])
+    };
+    
+    let _ = request.respond(response);
+}
+
+fn serve_file(file_path: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    match fs::read(file_path) {
+        Ok(contents) => {
+            let content_type = match file_path.split('.').last() {
+                Some("html") => "text/html",
+                Some("js") => "application/javascript",
+                Some("wasm") => "application/wasm",
+                Some("json") => "application/json",
+                Some("css") => "text/css",
+                _ => "text/plain",
+            };
+            
+            let header = Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes())
+                .expect("Invalid header");
+            
+            Response::from_data(contents).with_header(header)
+        }
+        Err(_) => {
+            if file_path != "index.html" {
+                return serve_file("index.html");
+            }
+            Response::from_string("404 Not Found").with_status_code(404)
+        }
+    }
+}
+
+async fn start_websocket_server(
+    port: u16, 
+    clients: Clients, 
+    broadcast_tx: broadcast::Sender<WsMessage>
+) {
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
+        .await
+        .expect("Failed to bind WebSocket server");
+    
+    println!("🔌 WebSocket server listening on port {}", port);
+    
+    while let Ok((stream, addr)) = listener.accept().await {
+        let clients_clone = clients.clone();
+        let broadcast_tx_clone = broadcast_tx.clone();
+        
+        tokio::spawn(async move {
+            handle_websocket_connection(stream, addr.to_string(), clients_clone, broadcast_tx_clone).await;
+        });
+    }
+}
+
+async fn handle_websocket_connection(
+    stream: tokio::net::TcpStream,
+    client_id: String,
     clients: Clients,
     broadcast_tx: broadcast::Sender<WsMessage>,
 ) {
-    let client_id = format!("client_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) / 1_000_000);
+    let ws_stream = match tokio_tungstenite::accept_async(stream).await {
+        Ok(ws) => ws,
+        Err(e) => {
+            println!("❌ WebSocket upgrade failed for {}: {}", client_id, e);
+            return;
+        }
+    };
+    
     println!("🤝 New WebSocket connection: {}", client_id);
     
-    let (mut ws_sender, mut ws_receiver) = websocket.split();
+    let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let mut broadcast_rx = broadcast_tx.subscribe();
     
     // Add client
@@ -114,12 +173,12 @@ async fn handle_websocket(
     
     // Welcome message
     let welcome_msg = WsMessage::System {
-        message: format!("🦀 Welcome {}! Pure Rust server", client_id),
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        message: format!("🦀 Welcome {}! WebSocket connected", client_id),
+        timestamp: get_timestamp(),
     };
     
     if let Ok(welcome_json) = serde_json::to_string(&welcome_msg) {
-        let _ = ws_sender.send(warp::ws::Message::text(welcome_json)).await;
+        let _ = ws_sender.send(tokio_tungstenite::tungstenite::Message::Text(welcome_json)).await;
     }
     
     // Handle incoming messages
@@ -129,27 +188,22 @@ async fn handle_websocket(
         while let Some(result) = ws_receiver.next().await {
             match result {
                 Ok(msg) => {
-                    if msg.is_text() {
-                        if let Ok(text) = msg.to_str() {
-                            println!("📨 Received from {}: {}", client_id_clone, text);
-                            
-                            match serde_json::from_str::<WsMessage>(text) {
-                                Ok(parsed_msg) => {
-                                    let _ = broadcast_tx_clone.send(parsed_msg);
-                                }
-                                Err(_) => {
-                                    let chat_msg = WsMessage::Chat {
-                                        user: client_id_clone.clone(),
-                                        message: text.to_string(),
-                                        timestamp: chrono::Utc::now().to_rfc3339(),
-                                    };
-                                    let _ = broadcast_tx_clone.send(chat_msg);
-                                }
+                    if let tokio_tungstenite::tungstenite::Message::Text(text) = msg {
+                        println!("📨 Received from {}: {}", client_id_clone, text);
+                        
+                        match serde_json::from_str::<WsMessage>(&text) {
+                            Ok(parsed_msg) => {
+                                let _ = broadcast_tx_clone.send(parsed_msg);
+                            }
+                            Err(_) => {
+                                let chat_msg = WsMessage::Chat {
+                                    user: client_id_clone.clone(),
+                                    message: text,
+                                    timestamp: get_timestamp(),
+                                };
+                                let _ = broadcast_tx_clone.send(chat_msg);
                             }
                         }
-                    } else if msg.is_close() {
-                        println!("👋 Client {} disconnected", client_id_clone);
-                        break;
                     }
                 }
                 Err(e) => {
@@ -161,16 +215,16 @@ async fn handle_websocket(
     });
     
     // Handle outgoing broadcasts
-    let client_id_clone_outgoing = client_id.clone();
+    let client_id_clone = client_id.clone();
     let outgoing_task = tokio::spawn(async move {
         while let Ok(broadcast_msg) = broadcast_rx.recv().await {
             if let Ok(json) = serde_json::to_string(&broadcast_msg) {
                 if ws_sender
-                    .send(warp::ws::Message::text(json))
+                    .send(tokio_tungstenite::tungstenite::Message::Text(json))
                     .await
                     .is_err()
                 {
-                    println!("❌ Failed to send message to {}", client_id_clone_outgoing);
+                    println!("❌ Failed to send message to {}", client_id_clone);
                     break;
                 }
             }

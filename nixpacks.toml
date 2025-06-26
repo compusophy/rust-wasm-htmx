@@ -4,7 +4,7 @@ providers = ["rust"]
 RUST_VERSION = "1.75"
 
 [phases.setup]
-nixPkgs = ["cargo", "rustc", "wasm-pack", "binaryen", "gcc"]
+nixPkgs = ["cargo", "rustc", "wasm-pack", "binaryen"]
 
 [phases.build]
 cmd = "wasm-pack build --target web --out-dir pkg && cargo build --release --bin server"
