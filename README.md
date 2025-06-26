@@ -7,7 +7,7 @@ A modern web application demonstrating the integration of Rust WebAssembly with 
 - **Rust WebAssembly**: High-performance calculations compiled to WASM
 - **HTMX Integration**: Dynamic content updates without complex JavaScript
 - **WebSocket Server**: Real-time communication built with Rust + Tokio
-- **Express Server**: Simple Node.js server for API endpoints
+- **Express Server**: Simple Node.js server for API endpoint
 - **Modern UI**: Beautiful, responsive design with CSS gradients and animations
 
 ## 📋 Prerequisites
