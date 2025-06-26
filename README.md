@@ -51,16 +51,12 @@ npm install -g wasm-pack
 ```
 rust-frame-host/
 ├── src/
-│   ├── lib.rs                 # Rust WASM source code
-│   ├── routes/
-│   │   ├── layout.tsx         # Qwik layout component
-│   │   ├── index.tsx          # Main page component
-│   │   └── api/               # API routes for HTMX
-│   ├── entry.ssr.tsx          # SSR entry point
-│   └── root.tsx               # Root Qwik component
+│   └── lib.rs                 # Rust WASM source code
 ├── public/
 │   └── manifest.json          # PWA manifest
 ├── pkg/                       # Generated WASM output (after build)
+├── index.html                 # Main HTML page
+├── server.js                  # Express server with API endpoints
 ├── Cargo.toml                 # Rust dependencies
 ├── package.json               # Node.js dependencies
 └── vite.config.ts             # Vite configuration
@@ -78,18 +74,16 @@ rust-frame-host/
 - **POST Requests**: Echo form data processing
 - **Integration**: Combine WASM calculations with server requests
 
-### Qwik Framework
-- **Resumable**: Fast initial page loads
-- **Reactive**: Real-time UI updates
-- **SSR**: Server-side rendering support
+### Express Server
+- **Simple**: Lightweight Node.js web server
+- **API Endpoints**: RESTful endpoints for HTMX integration
+- **Static Files**: Serves HTML, CSS, and WASM files
 
 ## 🔧 Available Scripts
 
 - `npm run build:rust` - Build Rust to WebAssembly
-- `npm run build:qwik` - Build Qwik application
-- `npm run build` - Build both Rust and Qwik
-- `npm run dev` - Start development server
-- `npm start` - Start production server
+- `npm run server` - Start Express server
+- `npm start` - Build Rust and start server
 
 ## 🧪 Testing the Integration
 
@@ -102,10 +96,9 @@ rust-frame-host/
 
 - **[Rust](https://rust-lang.org/)** - Systems programming language
 - **[wasm-bindgen](https://rustwasm.github.io/wasm-bindgen/)** - Rust-WebAssembly bindings
-- **[Qwik](https://qwik.builder.io/)** - Modern web framework
+- **[Express.js](https://expressjs.com/)** - Fast web framework for Node.js
 - **[HTMX](https://htmx.org/)** - Dynamic HTML with minimal JavaScript
-- **[Vite](https://vitejs.dev/)** - Fast build tool
-- **[TypeScript](https://typescriptlang.org/)** - Type-safe JavaScript
+- **[Node.js](https://nodejs.org/)** - JavaScript runtime environment
 
 ## 🚨 Troubleshooting
 
@@ -120,15 +113,15 @@ rust-frame-host/
 - Reinstall dependencies: `npm install`
 
 ### Development Server Issues
-- Check if port 5173 is available
-- Try `npm run build:rust && npm run dev`
+- Check if port 3000 is available
+- Try `npm run build:rust && npm run server`
 - Ensure all dependencies are installed
 
 ## 📚 Learning Resources
 
 - [Rust WebAssembly Book](https://rustwasm.github.io/book/)
-- [Qwik Documentation](https://qwik.builder.io/docs/)
 - [HTMX Documentation](https://htmx.org/docs/)
+- [Express.js Guide](https://expressjs.com/en/guide/routing.html)
 - [wasm-bindgen Guide](https://rustwasm.github.io/wasm-bindgen/)
 
 ## 🤝 Contributing
