@@ -9,16 +9,18 @@
     "server": "node server.js",
     "websocket": "cargo run --bin websocket-server",
     "dev:full": "npm run build:rust && concurrently \"npm run server\" \"npm run websocket\"",
-    "start": "npm run dev"
+    "start": "npm run dev",
+    "start:production": "npm run build && npm run server:production",
+    "server:production": "node server.js"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "concurrently": "^8.2.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.4",
     "typescript": "5.3.3",
-    "vite": "^5.0.10",
-    "concurrently": "^8.2.2"
+    "vite": "^5.0.10"
   },
   "engines": {
     "node": "^18.17.0 || ^20.3.0 || >=21.0.0"

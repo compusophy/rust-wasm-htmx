@@ -1,0 +1,15 @@
+[providers]
+node = "18"
+rust = "1.75"
+
+[variables]
+NPM_CONFIG_PRODUCTION = "false"
+
+[phases.setup]
+nixPkgs = ["nodejs_18", "rustc", "cargo", "wasm-pack", "binaryen"]
+
+[phases.build]
+cmd = "npm ci && npm run build"
+
+[phases.start]
+cmd = "npm run start:production" 

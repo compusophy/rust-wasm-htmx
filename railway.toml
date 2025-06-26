@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npm run start:production"
+restartPolicyType = "always"
+
+# Environment variables
+[env]
+NODE_ENV = "production"
+RUST_LOG = "info" 

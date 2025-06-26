@@ -159,6 +159,64 @@ rust-frame-host/
 - [Express.js Guide](https://expressjs.com/en/guide/routing.html)
 - [wasm-bindgen Guide](https://rustwasm.github.io/wasm-bindgen/)
 
+## 🚀 Railway Deployment
+
+Deploy this application to Railway with these steps:
+
+### Prerequisites
+- [Railway account](https://railway.app/)
+- [Railway CLI](https://docs.railway.app/deployment/cli) (optional)
+
+### Deployment Steps
+
+1. **Via Railway Dashboard**:
+   ```bash
+   # Push your code to GitHub
+   git add .
+   git commit -m "Ready for Railway deployment"
+   git push origin main
+   ```
+   
+   - Go to [Railway Dashboard](https://railway.app/dashboard)
+   - Click "New Project" 
+   - Select "Deploy from GitHub repo"
+   - Choose this repository
+   - Railway will auto-detect and deploy!
+
+2. **Via Railway CLI**:
+   ```bash
+   # Install Railway CLI
+   npm install -g @railway/cli
+   
+   # Login and deploy
+   railway login
+   railway init
+   railway up
+   ```
+
+### Configuration
+
+Railway will automatically:
+- ✅ Detect Node.js and Rust
+- ✅ Install wasm-pack and build tools
+- ✅ Build the Rust WASM module
+- ✅ Start the Express server
+- ✅ Assign a public URL
+
+The deployed app includes:
+- 🎮 32x32 Grid Game (fully functional)
+- 🦀 Rust WASM calculations
+- 🔄 HTMX dynamic content
+- 📱 Responsive design
+
+**Note**: WebSocket features are disabled in production for simplicity. The core WASM grid functionality works perfectly!
+
+### Environment Variables
+
+Railway automatically sets:
+- `PORT` - Server port (assigned by Railway)
+- `NODE_ENV=production` - Production mode
+
 ## 🤝 Contributing
 
 Feel free to open issues or submit pull requests for improvements!
