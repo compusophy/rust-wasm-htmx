@@ -7,7 +7,7 @@ RUST_VERSION = "1.75"
 nixPkgs = ["cargo", "rustc", "wasm-pack", "binaryen", "gcc"]
 
 [phases.build]
-cmd = "echo '🦀 Building WASM...' && wasm-pack build --target web --out-dir pkg --verbose && echo '📁 WASM files created:' && ls -la pkg/ && echo '🦀 Building Rust server...' && cargo build --release --bin server --verbose && echo '✅ Build complete!'"
+cmd = "chmod +x build.sh && ./build.sh"
 
 [phases.start]
 cmd = "cargo run --release --bin server" 
