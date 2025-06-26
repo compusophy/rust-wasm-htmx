@@ -1,12 +1,11 @@
-[providers]
-node = "18"
-rust = "1.75"
+providers = ["node", "rust"]
 
 [variables]
 NPM_CONFIG_PRODUCTION = "false"
+NODE_VERSION = "18"
 
 [phases.setup]
-nixPkgs = ["nodejs_18", "rustc", "cargo", "wasm-pack", "binaryen"]
+nixPkgs = ["nodejs_18", "cargo", "rustc", "wasm-pack", "binaryen"]
 
 [phases.build]
 cmd = "npm ci && npm run build"
