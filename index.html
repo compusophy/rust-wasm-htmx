@@ -202,9 +202,8 @@
             const wsStatus = document.getElementById('ws-status');
             
             try {
-                // WebSocket runs on port 3001 (main port + 1)
-                const wsPort = parseInt(window.location.port || '3000') + 1;
-                const wsUrl = `ws://${window.location.hostname}:${wsPort}`;
+                // WebSocket runs on SAME port as HTTP server
+                const wsUrl = `ws://${window.location.host}/ws`;
                 console.log('🔌 Connecting to WebSocket:', wsUrl);
                 websocket = new WebSocket(wsUrl);
                 

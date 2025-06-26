@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::thread;
-use std::fs;
 use tokio::sync::{broadcast, Mutex};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use tiny_http::{Server, Response, Header};
+use std::fs;
 
 // Message types for WebSocket communication
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -39,10 +37,12 @@ fn get_timestamp() -> String {
 
 #[tokio::main]
 async fn main() {
-    println!("🦀 Starting Pure Rust Server with WebSockets...");
+    println!("🦀 Starting Pure Rust Server (HTTP + WebSocket on same port)...");
     
     let port = std::env::var("PORT")
-        .unwrap_or_else(|_| "3000".to_string());
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse::<u16>()
+        .unwrap_or(3000);
     
     // WebSocket state
     let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
@@ -50,103 +50,56 @@ async fn main() {
     
     // Send startup message
     let startup_msg = WsMessage::System {
-        message: "🦀 Pure Rust server with WebSockets started!".to_string(),
+        message: "🦀 Pure Rust server started!".to_string(),
         timestamp: get_timestamp(),
     };
     let _ = broadcast_tx.send(startup_msg);
     
-    println!("🚀 Server running at http://localhost:{}", port);
-    println!("📁 Serving static files via HTTP");
-    println!("🔌 WebSocket available at ws://localhost:{}/ws", port);
+    println!("🚀 Server running at http://0.0.0.0:{}", port);
+    println!("📁 Serving static files + WebSocket upgrades on SAME port");
+    println!("🔌 WebSocket available at ws://your-domain/ws");
     println!("🦀 WASM files available at /pkg/");
-    println!("⚡ Pure Rust - Minimal C dependencies!");
     
-    // Start HTTP server in a separate thread
-    let http_port = port.clone();
-    thread::spawn(move || {
-        start_http_server(&http_port);
-    });
-    
-    // Start WebSocket server on same port + 1
-    let ws_port: u16 = port.parse::<u16>().unwrap_or(3000) + 1;
-    start_websocket_server(ws_port, clients, broadcast_tx).await;
-}
-
-fn start_http_server(port: &str) {
-    let server = Server::http(format!("0.0.0.0:{}", port)).unwrap();
-    
-    for request in server.incoming_requests() {
-        thread::spawn(move || {
-            handle_http_request(request);
-        });
-    }
-}
-
-fn handle_http_request(request: tiny_http::Request) {
-    let url = request.url();
-    let method = request.method();
-    
-    println!("📨 {} {}", method, url);
-    
-    let response = match url {
-        "/" => serve_file("index.html"),
-        "/play" => serve_file("play.html"),
-        path if path.starts_with("/pkg/") => serve_file(&path[1..]),
-        path if path.starts_with("/public/") => serve_file(&path[1..]),
-        _ => serve_file(&url[1..])
-    };
-    
-    let _ = request.respond(response);
-}
-
-fn serve_file(file_path: &str) -> Response<std::io::Cursor<Vec<u8>>> {
-    match fs::read(file_path) {
-        Ok(contents) => {
-            let content_type = match file_path.split('.').last() {
-                Some("html") => "text/html",
-                Some("js") => "application/javascript",
-                Some("wasm") => "application/wasm",
-                Some("json") => "application/json",
-                Some("css") => "text/css",
-                _ => "text/plain",
-            };
-            
-            let header = Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes())
-                .expect("Invalid header");
-            
-            Response::from_data(contents).with_header(header)
-        }
-        Err(_) => {
-            if file_path != "index.html" {
-                return serve_file("index.html");
-            }
-            Response::from_string("404 Not Found").with_status_code(404)
-        }
-    }
-}
-
-async fn start_websocket_server(
-    port: u16, 
-    clients: Clients, 
-    broadcast_tx: broadcast::Sender<WsMessage>
-) {
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
-        .expect("Failed to bind WebSocket server");
-    
-    println!("🔌 WebSocket server listening on port {}", port);
+        .expect("Failed to bind server");
     
     while let Ok((stream, addr)) = listener.accept().await {
         let clients_clone = clients.clone();
         let broadcast_tx_clone = broadcast_tx.clone();
         
         tokio::spawn(async move {
-            handle_websocket_connection(stream, addr.to_string(), clients_clone, broadcast_tx_clone).await;
+            handle_connection(stream, addr.to_string(), clients_clone, broadcast_tx_clone).await;
         });
     }
 }
 
-async fn handle_websocket_connection(
+async fn handle_connection(
+    stream: tokio::net::TcpStream,
+    client_addr: String,
+    clients: Clients,
+    broadcast_tx: broadcast::Sender<WsMessage>,
+) {
+    // Read the first line to see if it's an HTTP request
+    let mut buf = [0; 1024];
+    let n = match stream.peek(&mut buf).await {
+        Ok(n) => n,
+        Err(_) => return,
+    };
+    
+    let request_str = String::from_utf8_lossy(&buf[..n]);
+    
+    // Check if it's a WebSocket upgrade request
+    if request_str.contains("Upgrade: websocket") || request_str.contains("/ws") {
+        println!("🔌 WebSocket upgrade request from {}", client_addr);
+        handle_websocket_upgrade(stream, client_addr, clients, broadcast_tx).await;
+    } else {
+        println!("📨 HTTP request from {}", client_addr);
+        handle_http(stream, &request_str).await;
+    }
+}
+
+async fn handle_websocket_upgrade(
     stream: tokio::net::TcpStream,
     client_id: String,
     clients: Clients,
@@ -160,7 +113,7 @@ async fn handle_websocket_connection(
         }
     };
     
-    println!("🤝 New WebSocket connection: {}", client_id);
+    println!("🤝 WebSocket connected: {}", client_id);
     
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let mut broadcast_rx = broadcast_tx.subscribe();
@@ -173,7 +126,7 @@ async fn handle_websocket_connection(
     
     // Welcome message
     let welcome_msg = WsMessage::System {
-        message: format!("🦀 Welcome {}! WebSocket connected", client_id),
+        message: format!("🦀 Welcome {}!", client_id),
         timestamp: get_timestamp(),
     };
     
@@ -186,29 +139,21 @@ async fn handle_websocket_connection(
     let client_id_clone = client_id.clone();
     let incoming_task = tokio::spawn(async move {
         while let Some(result) = ws_receiver.next().await {
-            match result {
-                Ok(msg) => {
-                    if let tokio_tungstenite::tungstenite::Message::Text(text) = msg {
-                        println!("📨 Received from {}: {}", client_id_clone, text);
-                        
-                        match serde_json::from_str::<WsMessage>(&text) {
-                            Ok(parsed_msg) => {
-                                let _ = broadcast_tx_clone.send(parsed_msg);
-                            }
-                            Err(_) => {
-                                let chat_msg = WsMessage::Chat {
-                                    user: client_id_clone.clone(),
-                                    message: text,
-                                    timestamp: get_timestamp(),
-                                };
-                                let _ = broadcast_tx_clone.send(chat_msg);
-                            }
-                        }
+            if let Ok(tokio_tungstenite::tungstenite::Message::Text(text)) = result {
+                println!("📨 WS from {}: {}", client_id_clone, text);
+                
+                match serde_json::from_str::<WsMessage>(&text) {
+                    Ok(parsed_msg) => {
+                        let _ = broadcast_tx_clone.send(parsed_msg);
                     }
-                }
-                Err(e) => {
-                    println!("❌ WebSocket error for {}: {}", client_id_clone, e);
-                    break;
+                    Err(_) => {
+                        let chat_msg = WsMessage::Chat {
+                            user: client_id_clone.clone(),
+                            message: text,
+                            timestamp: get_timestamp(),
+                        };
+                        let _ = broadcast_tx_clone.send(chat_msg);
+                    }
                 }
             }
         }
@@ -224,7 +169,6 @@ async fn handle_websocket_connection(
                     .await
                     .is_err()
                 {
-                    println!("❌ Failed to send message to {}", client_id_clone);
                     break;
                 }
             }
@@ -242,5 +186,78 @@ async fn handle_websocket_connection(
         clients_lock.remove(&client_id);
     }
     
-    println!("🔌 Connection closed for {}", client_id);
+    println!("🔌 WebSocket closed: {}", client_id);
+}
+
+async fn handle_http(stream: tokio::net::TcpStream, request_str: &str) {
+    // Parse the request line
+    let lines: Vec<&str> = request_str.lines().collect();
+    if lines.is_empty() {
+        return;
+    }
+    
+    let request_line = lines[0];
+    let parts: Vec<&str> = request_line.split_whitespace().collect();
+    if parts.len() < 2 {
+        return;
+    }
+    
+    let path = parts[1];
+    println!("📨 HTTP {} {}", parts[0], path);
+    
+    let (content, content_type) = match path {
+        "/" => (read_file("index.html"), "text/html"),
+        "/play" => (read_file("play.html"), "text/html"),
+        path if path.starts_with("/pkg/") => {
+            let file_path = &path[1..]; // Remove leading /
+            let content_type = if path.ends_with(".js") {
+                "application/javascript"
+            } else if path.ends_with(".wasm") {
+                "application/wasm"
+            } else {
+                "application/octet-stream"
+            };
+            (read_file(file_path), content_type)
+        },
+        path if path.starts_with("/public/") => {
+            let file_path = &path[1..]; // Remove leading /
+            (read_file(file_path), "application/json")
+        },
+        _ => {
+            // Try to serve the file directly
+            let file_path = &path[1..]; // Remove leading /
+            (read_file(file_path), "text/plain")
+        }
+    };
+    
+    let response = match content {
+        Some(file_content) => {
+            format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n{}",
+                content_type,
+                file_content.len(),
+                String::from_utf8_lossy(&file_content)
+            )
+        }
+        None => {
+            "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\n\r\n404 Error".to_string()
+        }
+    };
+    
+    use tokio::io::AsyncWriteExt;
+    let mut stream = stream;
+    let _ = stream.write_all(response.as_bytes()).await;
+}
+
+fn read_file(file_path: &str) -> Option<Vec<u8>> {
+    match fs::read(file_path) {
+        Ok(content) => {
+            println!("✅ Served: {}", file_path);
+            Some(content)
+        }
+        Err(_) => {
+            println!("❌ Not found: {}", file_path);
+            None
+        }
+    }
 } 
